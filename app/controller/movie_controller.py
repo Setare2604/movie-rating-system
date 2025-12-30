@@ -1,0 +1,43 @@
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app.db.database import get_db
+from app.repositories.movie_repository import MovieRepository
+from app.schemas.common import SuccessResponse
+from app.exceptions.http_exceptions import unprocessable
+
+router = APIRouter(prefix="/api/v1/movies", tags=["movies"])
+
+
+@router.get("", response_model=SuccessResponse)
+def list_movies(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    title: str | None = None,
+    release_year: str | None = None,
+    genre: str | None = None,
+    db: Session = Depends(get_db),
+):
+    year: int | None = None
+    if release_year is not None:
+        if not release_year.isdigit():
+            raise unprocessable("Invalid release_year")
+        year = int(release_year)
+
+    repo = MovieRepository(db)
+    items, total = repo.list_movies(
+        page=page,
+        page_size=page_size,
+        title=title,
+        release_year=year,
+        genre=genre,
+    )
+    return {
+        "status": "success",
+        "data": {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "items": items,
+        },
+    }
