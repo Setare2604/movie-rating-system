@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -11,12 +11,17 @@ from app.schemas.common import SuccessResponse
 router = APIRouter(prefix="/api/v1/movies", tags=["ratings"])
 
 
-@router.post("/{movie_id}/ratings", response_model=SuccessResponse)
+@router.post("/{movie_id}/ratings", response_model=SuccessResponse, status_code=status.HTTP_201_CREATED)
 def create_rating(movie_id: int, payload: RatingCreate, db: Session = Depends(get_db)):
-    # اول مطمئن شو فیلم وجود دارد
     movie_repo = MovieRepository(db)
     if movie_repo.get_movie(movie_id) is None:
         raise not_found("Movie not found")
+    
+    if payload.score < 1 or payload.score > 10:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Score must be an integer between 1 and 10",
+        )
 
     repo = RatingRepository(db)
     rating = repo.create_rating(movie_id=movie_id, score=payload.score)
@@ -24,7 +29,7 @@ def create_rating(movie_id: int, payload: RatingCreate, db: Session = Depends(ge
     return {
         "status": "success",
         "data": {
-            "id": rating.id,
+            "rating_id": rating.id,
             "movie_id": rating.movie_id,
             "score": rating.score,
             "created_at": rating.created_at,

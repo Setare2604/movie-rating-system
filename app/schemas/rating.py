@@ -3,7 +3,7 @@ from datetime import datetime
 
 
 class RatingCreate(BaseModel):
-    score: int = Field(..., ge=1, le=10)
+    score: int 
 
 
 class RatingOut(BaseModel):
