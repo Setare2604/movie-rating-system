@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -6,6 +6,7 @@ from app.repositories.movie_repository import MovieRepository
 from app.schemas.common import SuccessResponse
 from app.exceptions.http_exceptions import unprocessable
 from app.exceptions.http_exceptions import not_found
+from app.schemas.movie import MovieCreate, MovieUpdate
 
 router = APIRouter(prefix="/api/v1/movies", tags=["movies"])
 
@@ -43,6 +44,16 @@ def list_movies(
         },
     }
 
+@router.post("", response_model=SuccessResponse, status_code=status.HTTP_201_CREATED)
+def create_movie(payload: MovieCreate, db: Session = Depends(get_db)):
+    repo = MovieRepository(db)
+    movie, err = repo.create_movie(payload)
+
+    if err:
+        raise unprocessable(err)
+
+    return {"status": "success", "data": movie}
+
 @router.get("/{movie_id}", response_model=SuccessResponse)
 def get_movie(movie_id: int, db: Session = Depends(get_db)):
     repo = MovieRepository(db)
@@ -51,3 +62,23 @@ def get_movie(movie_id: int, db: Session = Depends(get_db)):
         raise not_found("Movie not found")
 
     return {"status": "success", "data": movie}
+
+@router.put("/{movie_id}", response_model=SuccessResponse)
+def update_movie(movie_id: int, payload: MovieUpdate, db: Session = Depends(get_db)):
+    repo = MovieRepository(db)
+    movie, err = repo.update_movie(movie_id, payload)
+
+    if err:
+        if err == "Movie not found":
+            raise not_found(err)
+        raise unprocessable(err)
+
+    return {"status": "success", "data": movie}
+
+@router.delete("/{movie_id}", response_model=SuccessResponse)
+def delete_movie(movie_id: int, db: Session = Depends(get_db)):
+    repo = MovieRepository(db)
+    ok = repo.delete_movie(movie_id)
+    if not ok:
+        raise not_found("Movie not found")
+    return {"status": "success", "data": {"message": "Movie deleted"}}
