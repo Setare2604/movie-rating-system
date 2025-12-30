@@ -5,6 +5,7 @@ from app.db.database import get_db
 from app.repositories.movie_repository import MovieRepository
 from app.schemas.common import SuccessResponse
 from app.exceptions.http_exceptions import unprocessable
+from app.exceptions.http_exceptions import not_found
 
 router = APIRouter(prefix="/api/v1/movies", tags=["movies"])
 
@@ -41,3 +42,12 @@ def list_movies(
             "items": items,
         },
     }
+
+@router.get("/{movie_id}", response_model=SuccessResponse)
+def get_movie(movie_id: int, db: Session = Depends(get_db)):
+    repo = MovieRepository(db)
+    movie = repo.get_movie(movie_id)
+    if movie is None:
+        raise not_found("Movie not found")
+
+    return {"status": "success", "data": movie}

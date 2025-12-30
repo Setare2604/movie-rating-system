@@ -4,6 +4,7 @@ from app.models.movie import Movie
 from app.models.genre import Genre
 from app.models.movie_rating import MovieRating
 from app.models.director import Director
+from sqlalchemy.orm import joinedload
 
 
 class MovieRepository:
@@ -55,3 +56,33 @@ class MovieRepository:
             )
 
         return items, total
+    
+    def get_movie(self, movie_id: int):
+        row = (
+            self.db.query(
+                Movie,
+                func.count(MovieRating.id).label("ratings_count"),
+                func.avg(MovieRating.score).label("average_rating"),
+            )
+            .outerjoin(MovieRating, MovieRating.movie_id == Movie.id)
+            .filter(Movie.id == movie_id)
+            .group_by(Movie.id)
+            .options(joinedload(Movie.director), joinedload(Movie.genres))
+            .first()
+        )
+
+        if not row:
+            return None
+
+        movie, ratings_count, average_rating = row
+
+        return {
+            "id": movie.id,
+            "title": movie.title,
+            "release_year": movie.release_year,
+            "cast": movie.cast,
+            "director": {"id": movie.director.id, "name": movie.director.name},
+            "genres": [{"id": g.id, "name": g.name} for g in movie.genres],
+            "ratings_count": int(ratings_count or 0),
+            "average_rating": round(float(average_rating), 2) if average_rating is not None else None,
+        }
