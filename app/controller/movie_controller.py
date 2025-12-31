@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status,Response
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -75,10 +75,10 @@ def update_movie(movie_id: int, payload: MovieUpdate, db: Session = Depends(get_
 
     return {"status": "success", "data": movie}
 
-@router.delete("/{movie_id}", response_model=SuccessResponse)
+@router.delete("/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_movie(movie_id: int, db: Session = Depends(get_db)):
     repo = MovieRepository(db)
     ok = repo.delete_movie(movie_id)
     if not ok:
         raise not_found("Movie not found")
-    return {"status": "success", "data": {"message": "Movie deleted"}}
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

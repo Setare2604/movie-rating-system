@@ -82,8 +82,8 @@ class MovieRepository:
             "title": movie.title,
             "release_year": movie.release_year,
             "cast": movie.cast,
-            "director": {"id": movie.director.id, "name": movie.director.name},
-            "genres": [{"id": g.id, "name": g.name} for g in movie.genres],
+            "director": {"id": movie.director.id, "name": movie.director.name, "birth_year": movie.director.birth_year, "description": movie.director.description},
+            "genres": [g.name for g in movie.genres],
             "ratings_count": int(ratings_count or 0),
             "average_rating": round(float(average_rating), 2) if average_rating is not None else None,
         }
