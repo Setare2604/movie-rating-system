@@ -36,10 +36,16 @@ class MovieService:
         }
 
     def create_movie(self, payload: MovieCreate) -> dict:
-        movie, err = self.repo.create_movie(payload)
-        if err:
-            raise unprocessable(err)
-        return movie
+        director = self.repo.get_director_by_id(payload.director_id)
+        if director is None:
+            raise unprocessable("Invalid director_id or genres")
+
+        genre_ids = getattr(payload, "genre_ids", None) or getattr(payload, "genres", [])
+        genres = self.repo.get_genres_by_ids(genre_ids)
+        if len(genres) != len(set(genre_ids)):
+            raise unprocessable("Invalid director_id or genres")
+
+        return self.repo.create_movie(payload, genres)        
 
     def get_movie(self, movie_id: int) -> dict:
         movie = self.repo.get_movie(movie_id)
@@ -48,12 +54,22 @@ class MovieService:
         return movie
 
     def update_movie(self, movie_id: int, payload: MovieUpdate) -> dict:
-        movie, err = self.repo.update_movie(movie_id, payload)
-        if err:
-            if err == "Movie not found":
-                raise not_found(err)
-            raise unprocessable(err)
-        return movie
+        if self.repo.get_movie(movie_id) is None:
+            raise not_found("Movie not found")
+
+        if payload.director_id is not None:
+            director = self.repo.get_director_by_id(payload.director_id)
+            if director is None:
+                raise unprocessable("Invalid director_id or genres")
+
+        genres = None
+        if hasattr(payload, "genre_ids") and payload.genre_ids is not None:
+            gids = payload.genre_ids
+            genres = self.repo.get_genres_by_ids(gids) if gids else []
+            if len(genres) != len(set(gids)):
+                raise unprocessable("Invalid director_id or genres")
+        updated = self.repo.update_movie(movie_id, payload, genres)
+        return updated
 
     def delete_movie(self, movie_id: int) -> None:
         ok = self.repo.delete_movie(movie_id)

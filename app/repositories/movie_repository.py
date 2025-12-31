@@ -88,44 +88,25 @@ class MovieRepository:
             "average_rating": round(float(average_rating), 2) if average_rating is not None else None,
         }
     
-    def create_movie(self, payload: MovieCreate):
-        # validate director exists
-        director = self.db.query(Director).filter(Director.id == payload.director_id).first()
-        if director is None:
-            return None, "Invalid director_id"
-
-        # validate genres
-        genres = []
-        if payload.genre_ids:
-            genres = self.db.query(Genre).filter(Genre.id.in_(payload.genre_ids)).all()
-            if len(genres) != len(set(payload.genre_ids)):
-                return None, "Invalid genre_ids"
-
+    def create_movie(self, payload: MovieCreate, genres: list[Genre]):
         movie = Movie(
             title=payload.title,
             release_year=payload.release_year,
             cast=payload.cast,
             director_id=payload.director_id,
         )
-
-        movie.genres = genres  # works because of secondary=genres_movie :contentReference[oaicite:2]{index=2}
-
+        movie.genres = genres
         self.db.add(movie)
         self.db.commit()
         self.db.refresh(movie)
+        return self.get_movie(movie.id)
 
-        # reuse get_movie output format
-        return self.get_movie(movie.id), None
-
-    def update_movie(self, movie_id: int, payload: MovieUpdate):
+    def update_movie(self, movie_id: int, payload: MovieUpdate, genres: list[Genre] | None):
         movie_obj = self.db.query(Movie).filter(Movie.id == movie_id).first()
         if movie_obj is None:
-            return None, "Movie not found"
+            return None  
 
         if payload.director_id is not None:
-            director = self.db.query(Director).filter(Director.id == payload.director_id).first()
-            if director is None:
-                return None, "Invalid director_id"
             movie_obj.director_id = payload.director_id
 
         if payload.title is not None:
@@ -135,18 +116,12 @@ class MovieRepository:
         if payload.cast is not None:
             movie_obj.cast = payload.cast
 
-        if payload.genre_ids is not None:
-            if payload.genre_ids:
-                genres = self.db.query(Genre).filter(Genre.id.in_(payload.genre_ids)).all()
-                if len(genres) != len(set(payload.genre_ids)):
-                    return None, "Invalid genre_ids"
-                movie_obj.genres = genres
-            else:
-                movie_obj.genres = []
+        if genres is not None:
+            movie_obj.genres = genres
 
         self.db.commit()
         self.db.refresh(movie_obj)
-        return self.get_movie(movie_id), None
+        return self.get_movie(movie_id)
 
     def delete_movie(self, movie_id: int):
         movie_obj = self.db.query(Movie).filter(Movie.id == movie_id).first()
@@ -155,3 +130,11 @@ class MovieRepository:
         self.db.delete(movie_obj)
         self.db.commit()
         return True
+    
+    def get_director_by_id(self, director_id: int):
+        return self.db.query(Director).filter(Director.id == director_id).first()
+
+    def get_genres_by_ids(self, genre_ids: list[int]):
+        if not genre_ids:
+            return []
+        return self.db.query(Genre).filter(Genre.id.in_(genre_ids)).all()
